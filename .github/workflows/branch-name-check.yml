@@ -1,0 +1,116 @@
+name: 🚫 Validate Branch Name Pattern
+
+on:
+  push:
+    branches-ignore:
+      - main
+      - dev
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write # Required to comment on PRs
+
+jobs:
+  validate-branch-name:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get branch name
+        id: branch
+        run: |
+          # Extract branch name depending on event type
+          if [[ "${GITHUB_REF}" == refs/heads/* ]]; then
+            echo "branch_name=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
+          elif [[ "${GITHUB_HEAD_REF}" != "" ]]; then
+            echo "branch_name=${GITHUB_HEAD_REF}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check branch name pattern
+        id: check
+        run: |
+          BRANCH_NAME="${{ steps.branch.outputs.branch_name }}"
+          echo "🔍 Checking branch name: $BRANCH_NAME"
+
+          PATTERN='^feature\/[a-zA-Z0-9\-]+_[a-zA-Z0-9\-]+$'
+
+          if [[ ! "$BRANCH_NAME" =~ $PATTERN ]]; then
+            echo "valid=false" >> $GITHUB_OUTPUT
+            echo "❌ Invalid branch name detected!"
+          else
+            echo "valid=true" >> $GITHUB_OUTPUT
+            echo "✅ Branch name is valid."
+          fi
+
+      - name: Comment on PR if invalid
+        if: github.event_name == 'pull_request' && steps.check.outputs.valid == 'false'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const branch = "${{ steps.branch.outputs.branch_name }}";
+            const renameGuideUrl = "https://docs.github.com/articles/managing-branches-in-your-repository";
+
+            // Generate a suggested name
+            let suggested = branch;
+
+            // Only process if it starts with "feature/"
+            if (branch.startsWith("feature/")) {
+              const namePart = branch.replace(/^feature\//, "");
+              // Split on underscores
+              const parts = namePart.split("_");
+              if (parts.length > 1) {
+                const devName = parts.pop(); // last part = developer name
+                const featureName = parts.join("_").replace(/_/g, "-"); // replace extra underscores with hyphens
+                suggested = `feature/${featureName}_${devName}`;
+              } else {
+                // fallback: replace underscores with hyphens
+                suggested = `feature/${namePart.replace(/_/g, "-")}_yourname`;
+              }
+            } else {
+              // fallback for non-feature branches
+              suggested = "feature/your-feature_yourname";
+            }
+
+            const message = `
+            ⚠️ **Invalid branch name detected!**
+            > The branch name **\`${branch}\`** does not follow the required pattern.
+
+            ✅ **Expected pattern:** \`feature/<feature-name>_<developer-name>\`
+
+            **Examples:**
+            - feature/login-flow_raj  
+            - feature/payment-module_john-doe  
+
+            💡 **Suggested new branch name:**  
+            \`\`\`
+            ${suggested}
+            \`\`\`
+
+            🔧 **How to rename your branch:**
+            \`\`\`bash
+            # Rename your local branch
+            git branch -m ${branch} ${suggested}
+
+            # Push the renamed branch and set upstream
+            git push origin -u ${suggested}
+
+            # (Optional) Delete the old branch from remote
+            git push origin --delete ${branch}
+            \`\`\`
+
+            📘 **Learn more:** [GitHub Docs — Renaming branches](${renameGuideUrl})
+            `;
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: message
+            });
+
+      - name: Fail if invalid
+        if: steps.check.outputs.valid == 'false'
+        run: |
+          echo "❌ Branch name validation failed. Please rename your branch to match the pattern."
+          exit 1
