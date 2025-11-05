@@ -134,7 +134,7 @@ git checkout dev
 git pull origin dev
 
 # Merge latest dev into your feature branch
-git checkout feature/<feature_name>_<dev_name>
+git checkout feature/<feature-name>_<dev_name>
 git merge dev
 
 # Resolve conflicts if any
