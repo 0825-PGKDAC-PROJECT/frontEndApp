@@ -4,6 +4,7 @@ import 'bootstrap/dist/css/bootstrap.min.css'
 import 'bootstrap/dist/js/bootstrap.bundle.js'
 import CarDetails from "./Components/CarDetails";
 import SearchCar from "./Components/SearchCar";
+import Wishlist from "./Components/Wishlist";
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
             <Route index element=<SearchCar /> />
             <Route path="car-details" element=<CarDetails /> />
             <Route path="search-car" element=<SearchCar /> />
+            <Route path="wishlist" element=<Wishlist /> />
           </Route>
         </Routes>
       </div>
