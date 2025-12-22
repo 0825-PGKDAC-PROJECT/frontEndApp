@@ -5,7 +5,9 @@ import Footer from "./Footer"
 const UserLayout = () => {
     return <div>
         <Navbar />
-        <Outlet /> 
+        <div style={{margin: "2% 8%"}}>
+            <Outlet /> 
+        </div>
         <Footer />
     </div>
 }
